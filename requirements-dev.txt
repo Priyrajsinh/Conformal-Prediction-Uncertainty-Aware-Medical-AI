@@ -1,0 +1,12 @@
+black==24.10.0
+isort==5.13.2
+flake8==7.1.1
+mypy==1.13.0
+bandit==1.8.3
+radon==6.0.1
+interrogate==1.7.0
+pip-audit==2.8.0
+detect-secrets==1.5.0
+pytest==8.3.4
+pytest-cov==6.0.0
+pytest-asyncio==0.24.0
