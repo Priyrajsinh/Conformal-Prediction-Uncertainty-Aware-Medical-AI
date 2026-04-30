@@ -1,0 +1,10 @@
+# Default owner for everything
+*           @Priyrajsinh
+
+# Critical security & ML surfaces — explicit ownership
+src/models/         @Priyrajsinh
+src/api/            @Priyrajsinh
+src/data/           @Priyrajsinh
+.github/            @Priyrajsinh
+Dockerfile          @Priyrajsinh
+config/             @Priyrajsinh
