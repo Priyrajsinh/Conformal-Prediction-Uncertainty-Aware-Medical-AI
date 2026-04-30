@@ -1,0 +1,14 @@
+* text=auto eol=lf
+*.py text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.txt text eol=lf
+*.md text eol=lf
+
+*.html linguist-generated=true
+*.png linguist-generated=true
+*.pkl linguist-generated=true
+*.joblib linguist-generated=true
+reports/** linguist-generated=true
+notebooks/** linguist-generated=true
+requirements-lock.txt linguist-generated=true
