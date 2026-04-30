@@ -1,0 +1,36 @@
+data:
+  raw_path: "data/raw/heart.csv"
+  processed_dir: "data/processed"
+  train_pct: 0.60
+  cal_pct: 0.20
+  test_pct: 0.20
+  random_seed: 42
+
+model:
+  xgb:
+    n_estimators: 200
+    max_depth: 4
+    learning_rate: 0.05
+    random_state: 42
+    eval_metric: "logloss"
+    use_label_encoder: false
+  mapie:
+    method: "raps"
+    cv: "prefit"
+
+training:
+  alphas: [0.05, 0.10, 0.20]
+  mlflow_experiment: "p2_conformal_prediction"
+  mlflow_run_name_baseline: "baseline_xgb"
+  mlflow_run_name_conformal: "conformal_raps"
+
+paths:
+  models_dir: "models"
+  reports_dir: "reports"
+  figures_dir: "reports/figures"
+  eda_figures_dir: "reports/figures/eda"
+
+api:
+  coverage_alarm_threshold: 0.02
+  rate_limit: "30/minute"
+  content_length_limit: 1048576
