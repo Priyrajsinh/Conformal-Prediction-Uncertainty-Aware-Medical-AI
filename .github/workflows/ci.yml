@@ -54,6 +54,12 @@ jobs:
       - name: detect-secrets
         run: detect-secrets scan --baseline .secrets.baseline
 
+      - name: Download UCI Heart Disease dataset
+        run: |
+          mkdir -p data/raw
+          curl -fsSL -o data/raw/heart.csv \
+            https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data
+
       - name: pytest (coverage >= 70%)
         run: pytest tests/ -v --tb=short --cov=src --cov-fail-under=70
 

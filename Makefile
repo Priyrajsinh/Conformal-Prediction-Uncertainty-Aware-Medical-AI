@@ -34,6 +34,7 @@ ci:
 	interrogate src/ --fail-under=80
 	pip-audit -r requirements.txt
 	detect-secrets scan --baseline .secrets.baseline
+	@test -f data/raw/heart.csv || (mkdir -p data/raw && curl -fsSL -o data/raw/heart.csv https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data)
 	pytest tests/ -v --tb=short --cov=src --cov-fail-under=70
 	@echo ""
 	@echo "✅ All CI gates green. Safe to git push."
