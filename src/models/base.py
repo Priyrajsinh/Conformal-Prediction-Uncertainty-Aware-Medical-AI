@@ -4,23 +4,22 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 
 
 class BaseMLModel(ABC):
     """Interface contract for every ML model in the conformal prediction pipeline."""
 
     @abstractmethod
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> "BaseMLModel":
+    def fit(self, X: np.ndarray, y: np.ndarray) -> "BaseMLModel":
         """Fit the model on *X* and *y* and return self."""
 
     @abstractmethod
-    def predict(self, X: pd.DataFrame) -> np.ndarray:
+    def predict(self, X: np.ndarray) -> np.ndarray:
         """Return hard class predictions for *X*."""
 
     @abstractmethod
-    def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
-        """Return class probability matrix for *X* (shape: n_samples × n_classes)."""
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        """Return class probability matrix for *X* (shape: n_samples * n_classes)."""
 
     @abstractmethod
     def save(self, path: Path) -> None:
