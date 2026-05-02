@@ -1,5 +1,7 @@
 """Population Stability Index (PSI) based training-serving skew detection."""
 
+import json
+from pathlib import Path
 from typing import Sequence
 
 import numpy as np
@@ -60,3 +62,37 @@ def check_skew(
 
     logger.info("Skew check passed for %d features", len(features))
     return results
+
+
+def save_training_stats(
+    X: np.ndarray,
+    path: Path,
+    feature_names: list[str] | None = None,
+) -> None:
+    """Persist per-feature mean/std/min/max of training X to JSON for Day 5 skew checks.
+
+    If *feature_names* is None, generic ``feature_{i}`` keys are used. Output is
+    written as ``{name: {mean, std, min, max}}`` so it can be re-loaded as a
+    pandas DataFrame and validated by pandera (rule C23).
+    """
+    if X.ndim != 2:
+        raise ValueError(f"Expected 2-D X, got shape {X.shape}.")
+    if feature_names is None:
+        feature_names = [f"feature_{i}" for i in range(X.shape[1])]
+    if len(feature_names) != X.shape[1]:
+        raise ValueError(
+            f"feature_names length {len(feature_names)} != X.shape[1]={X.shape[1]}."
+        )
+    stats = {
+        name: {
+            "mean": float(X[:, i].mean()),
+            "std": float(X[:, i].std()),
+            "min": float(X[:, i].min()),
+            "max": float(X[:, i].max()),
+        }
+        for i, name in enumerate(feature_names)
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(stats, f, indent=2)
+    logger.info("Saved training stats for %d features -> %s", len(feature_names), path)

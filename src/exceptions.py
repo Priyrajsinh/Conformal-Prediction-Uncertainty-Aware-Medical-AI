@@ -23,3 +23,7 @@ class PredictionError(ConformalBaseError):
 
 class SkewError(ConformalBaseError):
     """Raised when training-serving feature drift exceeds the PSI threshold."""
+
+
+class ModelNotFoundError(ConformalBaseError):
+    """Raised when a serialized model artefact is missing on disk."""
