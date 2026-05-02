@@ -7,16 +7,49 @@ import mlflow
 import pytest
 import yaml  # type: ignore[import-untyped]
 
+from src.data.dataset import load_heart_disease
+from src.data.preprocessing import (
+    FEATURE_COLS,
+    fit_scaler,
+    save_splits,
+    three_way_split,
+)
 from src.training.train import run_training
 
 
 @pytest.fixture(scope="module")
 def cfg_in_tmp(tmp_path_factory: pytest.TempPathFactory) -> dict:
-    """Load real config but redirect models_dir + experiment to a tmp scope."""
+    """Bootstrap processed splits in tmp, redirect cfg paths + experiment to tmp.
+
+    data/processed/*.csv is gitignored (DVC-tracked), so CI does not have those
+    files even after the raw curl. Regenerate them in tmp from the raw CSV so
+    this test is hermetic across local + CI runs.
+    """
     with open("config/config.yaml") as f:
         cfg = yaml.safe_load(f)
-    tmp = tmp_path_factory.mktemp("models")
-    cfg["paths"]["models_dir"] = str(tmp)
+
+    tmp_root = tmp_path_factory.mktemp("day3")
+    processed_dir = tmp_root / "data" / "processed"
+    models_dir = tmp_root / "models"
+    processed_dir.mkdir(parents=True, exist_ok=True)
+    models_dir.mkdir(parents=True, exist_ok=True)
+
+    df = load_heart_disease(cfg["data"]["raw_path"])
+    train, cal, test = three_way_split(
+        df,
+        cfg["data"]["train_pct"],
+        cfg["data"]["cal_pct"],
+        cfg["data"]["test_pct"],
+        stratify_col="target",
+        seed=cfg["data"]["random_seed"],
+    )
+    train_s, cal_s, test_s = fit_scaler(
+        train, cal, test, FEATURE_COLS, models_dir / "scaler.joblib"
+    )
+    save_splits(train_s, cal_s, test_s, processed_dir)
+
+    cfg["data"]["processed_dir"] = str(processed_dir)
+    cfg["paths"]["models_dir"] = str(models_dir)
     cfg["training"]["mlflow_experiment"] = "p2_test_smoke"
     return cfg
 
