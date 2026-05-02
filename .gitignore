@@ -24,6 +24,7 @@ models/*.joblib
 models/mapie/
 models/xgb/
 models/training_stats.json
+models/calibration_metadata.json
 reports/figures/
 reports/results.json
 hf_space/*.pkl
