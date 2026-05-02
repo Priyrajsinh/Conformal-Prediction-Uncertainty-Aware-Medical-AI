@@ -17,7 +17,8 @@ explain.md
 MANUAL_TASKS.md
 data/raw/*.csv
 data/raw/*.data
-data/processed/
+data/processed/*.csv
+data/processed/*.sha256
 models/*.pkl
 models/*.joblib
 models/mapie/
