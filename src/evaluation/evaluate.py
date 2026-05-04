@@ -27,6 +27,7 @@ from src.evaluation.coverage import (
     plot_coverage_bar,
     plot_set_sizes_hist,
 )
+from src.evaluation.method_compare import compare_methods, plot_method_comparison
 from src.logger import get_logger
 from src.models.model import ConformalXGBoost
 
@@ -50,7 +51,13 @@ def run_evaluation(cfg: dict[str, Any]) -> dict[str, Any]:
     reports_dir.mkdir(parents=True, exist_ok=True)
     alphas: list[float] = list(cfg["training"]["alphas"])
 
+    train = pd.read_csv(processed_dir / "train.csv")
+    cal = pd.read_csv(processed_dir / "cal.csv")
     test = pd.read_csv(processed_dir / "test.csv")
+    X_train = train[FEATURE_COLS].values
+    y_train = train["target"].values.astype(int)
+    X_cal = cal[FEATURE_COLS].values
+    y_cal = cal["target"].values.astype(int)
     X_test = test[FEATURE_COLS].values
     y_test = test["target"].values.astype(int)
 
@@ -62,6 +69,23 @@ def run_evaluation(cfg: dict[str, Any]) -> dict[str, Any]:
     results["coverage"] = compute_per_alpha_coverage(model, X_test, y_test, alphas)
     plot_coverage_bar(results["coverage"], figures_dir / "coverage_guarantee.png")
     plot_set_sizes_hist(model, X_test, alphas, figures_dir / "set_sizes.png")
+
+    # Section B — LAC vs APS vs CV+ method comparison (RAPS skipped per C35).
+    results["method_comparison"] = compare_methods(
+        X_train=X_train,
+        y_train=y_train,
+        X_cal=X_cal,
+        y_cal=y_cal,
+        X_test=X_test,
+        y_test=y_test,
+        alphas=alphas,
+        xgb_params=cfg["model"]["xgb"],
+        seed=int(cfg["data"]["random_seed"]),
+    )
+    plot_method_comparison(
+        results["method_comparison"],
+        figures_dir / "method_comparison_set_sizes.png",
+    )
 
     # Persist — merge into existing reports/results.json so baseline_xgb stays.
     out_path = reports_dir / "results.json"

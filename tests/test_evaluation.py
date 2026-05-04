@@ -101,6 +101,39 @@ class TestPerAlphaCoverage:
             ), f"alpha={alpha}: coverage {cov:.3f} below target"
 
 
+class TestMethodComparison:
+    """Split CP vs CV+ (k=5, 10) shape + coverage guarantees.
+
+    APS/RAPS scores are excluded — MAPIE 1.x rejects them at runtime for binary
+    targets (CLAUDE.md C35 + ValueError raised by check_target). We vary the
+    splitting strategy instead, all using the LAC conformity score.
+    """
+
+    def test_method_comparison_three_methods(
+        self, cfg_in_tmp: dict, evaluation_results: dict
+    ) -> None:
+        """results['method_comparison'] has split_lac, cv_plus_5, cv_plus_10."""
+        mc = evaluation_results["method_comparison"]
+        assert set(mc.keys()) == {"split_lac", "cv_plus_5", "cv_plus_10"}
+        for method in mc:
+            for alpha in cfg_in_tmp["training"]["alphas"]:
+                entry = mc[method][str(alpha)]
+                assert "empirical_coverage" in entry
+                assert "mean_set_size" in entry
+
+    def test_method_comparison_meets_coverage(
+        self, cfg_in_tmp: dict, evaluation_results: dict
+    ) -> None:
+        """Every method clears the 1-alpha guarantee within tolerance."""
+        mc = evaluation_results["method_comparison"]
+        for method, per_alpha in mc.items():
+            for alpha_str, entry in per_alpha.items():
+                cov = entry["empirical_coverage"]
+                assert (
+                    cov >= 1 - float(alpha_str) - 0.05
+                ), f"method={method} alpha={alpha_str} coverage={cov:.3f}"
+
+
 class TestArtefacts:
     """Figure artefacts and the merged results.json file."""
 
@@ -118,12 +151,21 @@ class TestArtefacts:
         path = Path(cfg_in_tmp["paths"]["figures_dir"], "set_sizes.png")
         assert path.exists() and path.stat().st_size > 0
 
-    def test_results_json_persists_coverage_key(
+    def test_method_comparison_chart_written(
         self, cfg_in_tmp: dict, evaluation_results: dict
     ) -> None:
-        """reports/results.json contains the coverage block after the run."""
+        """method_comparison_set_sizes.png is written to the figures directory."""
+        path = Path(
+            cfg_in_tmp["paths"]["figures_dir"], "method_comparison_set_sizes.png"
+        )
+        assert path.exists() and path.stat().st_size > 0
+
+    def test_results_json_persists_top_level_keys(
+        self, cfg_in_tmp: dict, evaluation_results: dict
+    ) -> None:
+        """reports/results.json contains every section key emitted so far."""
         path = Path(cfg_in_tmp["paths"]["reports_dir"], "results.json")
         assert path.exists()
         payload = json.loads(path.read_text())
-        assert "coverage" in payload
-        assert isinstance(payload["coverage"], dict)
+        for key in ("coverage", "method_comparison"):
+            assert key in payload, f"missing {key}"
