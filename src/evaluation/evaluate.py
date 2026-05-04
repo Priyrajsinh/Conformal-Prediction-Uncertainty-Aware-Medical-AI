@@ -28,6 +28,7 @@ from src.evaluation.coverage import (
     plot_coverage_bar,
     plot_set_sizes_hist,
 )
+from src.evaluation.ece import expected_calibration_error, plot_reliability_diagram
 from src.evaluation.method_compare import compare_methods, plot_method_comparison
 from src.evaluation.mondrian import group_coverage, parity_test, plot_group_coverage
 from src.logger import get_logger
@@ -107,6 +108,12 @@ def run_evaluation(cfg: dict[str, Any]) -> dict[str, Any]:
     results["group_coverage"] = gc
     plot_group_coverage(gc, primary_alpha, figures_dir / "group_coverage.png")
 
+    # Section D — Expected Calibration Error and reliability diagram (rule U2).
+    y_proba = model.predict_proba(X_test)[:, 1]
+    ece, frac_pos, mean_pred = expected_calibration_error(y_test, y_proba, n_bins=10)
+    results["ece"] = {"value": float(ece), "n_bins": 10}
+    plot_reliability_diagram(frac_pos, mean_pred, ece, figures_dir / "calibration.png")
+
     # Persist — merge into existing reports/results.json so baseline_xgb stays.
     out_path = reports_dir / "results.json"
     if out_path.exists():
@@ -123,6 +130,8 @@ def run_evaluation(cfg: dict[str, Any]) -> dict[str, Any]:
         for alpha, m in results["coverage"].items():
             mlflow.log_metric(f"test_coverage_{alpha}", m["empirical_coverage"])
             mlflow.log_metric(f"test_mean_set_size_{alpha}", m["mean_set_size"])
+        if "ece" in results:
+            mlflow.log_metric("ece", float(results["ece"]["value"]))
         for fig in figures_dir.glob("*.png"):
             mlflow.log_artifact(str(fig))
 
