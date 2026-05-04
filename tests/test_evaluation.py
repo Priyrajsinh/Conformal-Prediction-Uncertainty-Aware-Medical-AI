@@ -134,6 +134,30 @@ class TestMethodComparison:
                 ), f"method={method} alpha={alpha_str} coverage={cov:.3f}"
 
 
+class TestMondrianGroupCoverage:
+    """Per-subgroup coverage and parity statistical tests."""
+
+    def test_group_coverage_keys(
+        self, cfg_in_tmp: dict, evaluation_results: dict
+    ) -> None:
+        """The five reportable subgroups appear in results['group_coverage']."""
+        gc = evaluation_results["group_coverage"]
+        for key in ("sex_0", "sex_1", "age_lt_50", "age_50_64", "age_65p"):
+            assert key in gc
+            assert "n" in gc[key]
+            assert "empirical_coverage" in gc[key]
+
+    def test_parity_test_returns_pvalue(
+        self, cfg_in_tmp: dict, evaluation_results: dict
+    ) -> None:
+        """parity dict has a finite sex_p_value in [0, 1]."""
+        parity = evaluation_results["group_coverage"]["parity"]
+        assert "sex_p_value" in parity
+        p = parity["sex_p_value"]
+        assert isinstance(p, float)
+        assert 0.0 <= p <= 1.0
+
+
 class TestArtefacts:
     """Figure artefacts and the merged results.json file."""
 
@@ -160,6 +184,13 @@ class TestArtefacts:
         )
         assert path.exists() and path.stat().st_size > 0
 
+    def test_group_coverage_chart_written(
+        self, cfg_in_tmp: dict, evaluation_results: dict
+    ) -> None:
+        """group_coverage.png is written to the figures directory."""
+        path = Path(cfg_in_tmp["paths"]["figures_dir"], "group_coverage.png")
+        assert path.exists() and path.stat().st_size > 0
+
     def test_results_json_persists_top_level_keys(
         self, cfg_in_tmp: dict, evaluation_results: dict
     ) -> None:
@@ -167,5 +198,5 @@ class TestArtefacts:
         path = Path(cfg_in_tmp["paths"]["reports_dir"], "results.json")
         assert path.exists()
         payload = json.loads(path.read_text())
-        for key in ("coverage", "method_comparison"):
+        for key in ("coverage", "method_comparison", "group_coverage"):
             assert key in payload, f"missing {key}"
