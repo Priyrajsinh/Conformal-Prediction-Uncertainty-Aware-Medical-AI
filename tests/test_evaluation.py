@@ -187,6 +187,37 @@ class TestDecisionCurveAnalysis:
         assert all(v == 0.0 for v in dca["treat_none"])
 
 
+class TestSelectiveClassification:
+    """Selective classification curve: shape and risk-coverage monotonicity."""
+
+    def test_selective_curve_keys(
+        self, cfg_in_tmp: dict, evaluation_results: dict
+    ) -> None:
+        """Selective dict has alphas + abstain_rates + accuracies, all same length."""
+        sel = evaluation_results["selective_classification"]
+        for key in ("alphas", "abstain_rates", "accuracies"):
+            assert key in sel
+        assert len(sel["alphas"]) == len(sel["abstain_rates"]) == len(sel["accuracies"])
+
+    def test_selective_curve_monotone_in_abstain_rate(
+        self, cfg_in_tmp: dict, evaluation_results: dict
+    ) -> None:
+        """Risk-coverage tradeoff: as abstain rate grows, accuracy is non-decreasing.
+
+        Sort by abstain rate ascending, then check accuracy is non-decreasing
+        within a small finite-sample tolerance (n=60 test rows wobble ~3-5pp).
+        """
+        sel = evaluation_results["selective_classification"]
+        pairs = sorted(zip(sel["abstain_rates"], sel["accuracies"]))
+        accuracies = [p[1] for p in pairs]
+        # Drop NaNs (abstain_rate==1.0 case has no predictions to score).
+        accuracies = [a for a in accuracies if not (isinstance(a, float) and a != a)]
+        for prev, curr in zip(accuracies, accuracies[1:]):
+            assert (
+                curr >= prev - 0.10
+            ), f"accuracy dropped from {prev:.3f} to {curr:.3f} as abstain rate grew"
+
+
 class TestArtefacts:
     """Figure artefacts and the merged results.json file."""
 
@@ -234,6 +265,13 @@ class TestArtefacts:
         path = Path(cfg_in_tmp["paths"]["figures_dir"], "dca_net_benefit.png")
         assert path.exists() and path.stat().st_size > 0
 
+    def test_selective_chart_written(
+        self, cfg_in_tmp: dict, evaluation_results: dict
+    ) -> None:
+        """selective_accuracy.png is written to the figures directory."""
+        path = Path(cfg_in_tmp["paths"]["figures_dir"], "selective_accuracy.png")
+        assert path.exists() and path.stat().st_size > 0
+
     def test_results_json_persists_top_level_keys(
         self, cfg_in_tmp: dict, evaluation_results: dict
     ) -> None:
@@ -241,5 +279,12 @@ class TestArtefacts:
         path = Path(cfg_in_tmp["paths"]["reports_dir"], "results.json")
         assert path.exists()
         payload = json.loads(path.read_text())
-        for key in ("coverage", "method_comparison", "group_coverage", "ece", "dca"):
+        for key in (
+            "coverage",
+            "method_comparison",
+            "group_coverage",
+            "ece",
+            "dca",
+            "selective_classification",
+        ):
             assert key in payload, f"missing {key}"

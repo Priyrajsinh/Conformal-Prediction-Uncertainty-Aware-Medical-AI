@@ -18,6 +18,7 @@ from typing import Any
 
 import matplotlib.pyplot as plt
 import mlflow
+import numpy as np
 import pandas as pd
 import yaml  # type: ignore[import-untyped]
 
@@ -32,6 +33,7 @@ from src.evaluation.dca import decision_curve_analysis, plot_dca
 from src.evaluation.ece import expected_calibration_error, plot_reliability_diagram
 from src.evaluation.method_compare import compare_methods, plot_method_comparison
 from src.evaluation.mondrian import group_coverage, parity_test, plot_group_coverage
+from src.evaluation.selective import plot_selective_curve, selective_accuracy_curve
 from src.logger import get_logger
 from src.models.model import ConformalXGBoost
 
@@ -118,6 +120,15 @@ def run_evaluation(cfg: dict[str, Any]) -> dict[str, Any]:
     # Section E — Decision Curve Analysis (rule A).
     results["dca"] = decision_curve_analysis(y_test, y_proba)
     plot_dca(results["dca"], figures_dir / "dca_net_benefit.png")
+
+    # Section F — Selective classification: alpha sweep on abstain/accuracy (rule C).
+    sweep = np.arange(0.01, 0.51, 0.02)
+    results["selective_classification"] = selective_accuracy_curve(
+        model, X_cal, y_cal, X_test, y_test, sweep
+    )
+    plot_selective_curve(
+        results["selective_classification"], figures_dir / "selective_accuracy.png"
+    )
 
     # Persist — merge into existing reports/results.json so baseline_xgb stays.
     out_path = reports_dir / "results.json"
