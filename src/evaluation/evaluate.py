@@ -28,6 +28,7 @@ from src.evaluation.coverage import (
     plot_coverage_bar,
     plot_set_sizes_hist,
 )
+from src.evaluation.dca import decision_curve_analysis, plot_dca
 from src.evaluation.ece import expected_calibration_error, plot_reliability_diagram
 from src.evaluation.method_compare import compare_methods, plot_method_comparison
 from src.evaluation.mondrian import group_coverage, parity_test, plot_group_coverage
@@ -113,6 +114,10 @@ def run_evaluation(cfg: dict[str, Any]) -> dict[str, Any]:
     ece, frac_pos, mean_pred = expected_calibration_error(y_test, y_proba, n_bins=10)
     results["ece"] = {"value": float(ece), "n_bins": 10}
     plot_reliability_diagram(frac_pos, mean_pred, ece, figures_dir / "calibration.png")
+
+    # Section E — Decision Curve Analysis (rule A).
+    results["dca"] = decision_curve_analysis(y_test, y_proba)
+    plot_dca(results["dca"], figures_dir / "dca_net_benefit.png")
 
     # Persist — merge into existing reports/results.json so baseline_xgb stays.
     out_path = reports_dir / "results.json"

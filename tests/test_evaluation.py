@@ -171,6 +171,22 @@ class TestExpectedCalibrationError:
         assert ece["n_bins"] == 10
 
 
+class TestDecisionCurveAnalysis:
+    """Net-benefit curves: shape and consistency."""
+
+    def test_dca_three_curves(self, cfg_in_tmp: dict, evaluation_results: dict) -> None:
+        """results['dca'] has model + treat_all + treat_none, all same length."""
+        dca = evaluation_results["dca"]
+        for key in ("model", "treat_all", "treat_none", "thresholds"):
+            assert key in dca
+        n = len(dca["thresholds"])
+        assert len(dca["model"]) == n
+        assert len(dca["treat_all"]) == n
+        assert len(dca["treat_none"]) == n
+        # treat_none is by definition zero everywhere.
+        assert all(v == 0.0 for v in dca["treat_none"])
+
+
 class TestArtefacts:
     """Figure artefacts and the merged results.json file."""
 
@@ -211,6 +227,13 @@ class TestArtefacts:
         path = Path(cfg_in_tmp["paths"]["figures_dir"], "calibration.png")
         assert path.exists() and path.stat().st_size > 0
 
+    def test_dca_chart_written(
+        self, cfg_in_tmp: dict, evaluation_results: dict
+    ) -> None:
+        """dca_net_benefit.png is written to the figures directory."""
+        path = Path(cfg_in_tmp["paths"]["figures_dir"], "dca_net_benefit.png")
+        assert path.exists() and path.stat().st_size > 0
+
     def test_results_json_persists_top_level_keys(
         self, cfg_in_tmp: dict, evaluation_results: dict
     ) -> None:
@@ -218,5 +241,5 @@ class TestArtefacts:
         path = Path(cfg_in_tmp["paths"]["reports_dir"], "results.json")
         assert path.exists()
         payload = json.loads(path.read_text())
-        for key in ("coverage", "method_comparison", "group_coverage", "ece"):
+        for key in ("coverage", "method_comparison", "group_coverage", "ece", "dca"):
             assert key in payload, f"missing {key}"
