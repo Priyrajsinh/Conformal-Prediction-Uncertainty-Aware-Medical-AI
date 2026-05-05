@@ -175,8 +175,8 @@ with gr.Blocks(title="Conformal Heart Disease AI") as demo:
 
 
 if __name__ == "__main__":
-    demo.launch(  # nosec B104
-        server_name="0.0.0.0",
+    demo.launch(
+        server_name="0.0.0.0",  # nosec B104
         server_port=7860,
         theme=get_theme(),
         css=get_css(),
