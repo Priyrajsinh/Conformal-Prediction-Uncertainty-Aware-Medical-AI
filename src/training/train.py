@@ -16,7 +16,7 @@ from typing import Any
 import mlflow
 import numpy as np
 import pandas as pd
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from src.data.preprocessing import FEATURE_COLS
 from src.data.skew_check import save_training_stats

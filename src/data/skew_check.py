@@ -96,3 +96,29 @@ def save_training_stats(
     with open(path, "w") as f:
         json.dump(stats, f, indent=2)
     logger.info("Saved training stats for %d features -> %s", len(feature_names), path)
+
+
+def check_serving_skew(
+    X: np.ndarray,
+    stats_path: Path,
+    z_threshold: float = 3.0,
+) -> dict[str, bool]:
+    """Return per-feature out-of-distribution flags for a single serving row.
+
+    Loads per-feature {mean, std} from *stats_path* (written by
+    ``save_training_stats``) and returns True for any feature whose z-score
+    exceeds *z_threshold*. Designed for single-row inference (shape (1, n_features)).
+    """
+    with open(stats_path) as f:
+        stats: dict[str, dict[str, float]] = json.load(f)
+
+    feature_names = list(stats.keys())
+    result: dict[str, bool] = {}
+    for i, name in enumerate(feature_names):
+        if i >= X.shape[1]:
+            break
+        s = stats[name]
+        std = s["std"] if s["std"] > 1e-9 else 1.0
+        z = abs((float(X[0, i]) - s["mean"]) / std)
+        result[name] = z > z_threshold
+    return result
