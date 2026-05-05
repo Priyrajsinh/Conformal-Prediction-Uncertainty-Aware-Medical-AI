@@ -7,7 +7,7 @@ Rules applied: C9, C14, C15, C43, C44.
 """
 
 from pathlib import Path
-from typing import Generator
+from typing import Any, Generator
 
 import gradio as gr
 import joblib
@@ -22,16 +22,26 @@ from src.models.model import ConformalXGBoost
 
 matplotlib.use("Agg")  # rule C15 -- non-interactive backend before any pyplot call
 
-_CFG = load_config("config/config.yaml")
-_MODELS_DIR = Path(_CFG["paths"]["models_dir"])
-
-_scaler = joblib.load(_MODELS_DIR / "scaler.joblib")
-_model: ConformalXGBoost = ConformalXGBoost.load(_MODELS_DIR)
-
 _GITHUB_URL = (
     "https://github.com/Priyrajsinh/"
     "Conformal-Prediction-Uncertainty-Aware-Medical-AI"
 )
+
+# Lazy-loaded singletons — None until first prediction request.
+# Tests patch these directly; CI never touches model files on import.
+_scaler: Any = None
+_model: ConformalXGBoost | None = None
+
+
+def _ensure_loaded() -> None:
+    """Load scaler + model from disk on first call; no-op if already loaded."""
+    global _scaler, _model
+    if _scaler is not None:
+        return
+    cfg = load_config("config/config.yaml")
+    models_dir = Path(cfg["paths"]["models_dir"])
+    _scaler = joblib.load(models_dir / "scaler.joblib")
+    _model = ConformalXGBoost.load(models_dir)
 
 
 def stream_classify(  # noqa: PLR0913
@@ -59,6 +69,11 @@ def stream_classify(  # noqa: PLR0913
     4. Translating to plain English
     5. Done (with full result payload)
     """
+    _ensure_loaded()
+    assert _scaler is not None and _model is not None
+    scaler = _scaler
+    model: ConformalXGBoost = _model
+
     yield "**Stage 1/4** -- Validating input...", None, ""
 
     features = HeartFeatures(
@@ -79,7 +94,7 @@ def stream_classify(  # noqa: PLR0913
 
     yield "**Stage 2/4** -- Running XGBoost classifier...", None, ""
 
-    X = _scaler.transform(np.array([list(features.model_dump().values())]))
+    X = scaler.transform(np.array([list(features.model_dump().values())]))
 
     yield (
         f"**Stage 3/4** -- Constructing prediction set (alpha={alpha:.2f})...",
@@ -87,7 +102,7 @@ def stream_classify(  # noqa: PLR0913
         "",
     )
 
-    y_pred, y_ps = _model.safe_predict(X, alpha=alpha)
+    y_pred, y_ps = model.safe_predict(X, alpha=alpha)
     ps = y_ps.squeeze(-1) if y_ps.ndim == 3 else y_ps
     pred_set = [int(c) for c in np.where(ps[0])[0]]
     label = int(y_pred[0])
