@@ -29,6 +29,11 @@ paths:
   reports_dir: "reports"
   figures_dir: "reports/figures"
   eda_figures_dir: "reports/figures/eda"
+  results_json: "reports/results.json"
+
+monitoring:
+  coverage_window_size: 200
+  coverage_violation_epsilon: 0.02
 
 api:
   coverage_alarm_threshold: 0.02

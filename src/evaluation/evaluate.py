@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 import mlflow
 import numpy as np
 import pandas as pd
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from src.data.dataset import load_heart_disease
 from src.data.preprocessing import FEATURE_COLS, three_way_split
