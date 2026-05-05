@@ -101,6 +101,63 @@ class TestPerAlphaCoverage:
             ), f"alpha={alpha}: coverage {cov:.3f} below target"
 
 
+class TestMethodComparison:
+    """Split CP vs CV+ (k=5, 10) shape + coverage guarantees.
+
+    APS/RAPS scores are excluded — MAPIE 1.x rejects them at runtime for binary
+    targets (CLAUDE.md C35 + ValueError raised by check_target). We vary the
+    splitting strategy instead, all using the LAC conformity score.
+    """
+
+    def test_method_comparison_three_methods(
+        self, cfg_in_tmp: dict, evaluation_results: dict
+    ) -> None:
+        """results['method_comparison'] has split_lac, cv_plus_5, cv_plus_10."""
+        mc = evaluation_results["method_comparison"]
+        assert set(mc.keys()) == {"split_lac", "cv_plus_5", "cv_plus_10"}
+        for method in mc:
+            for alpha in cfg_in_tmp["training"]["alphas"]:
+                entry = mc[method][str(alpha)]
+                assert "empirical_coverage" in entry
+                assert "mean_set_size" in entry
+
+    def test_method_comparison_meets_coverage(
+        self, cfg_in_tmp: dict, evaluation_results: dict
+    ) -> None:
+        """Every method clears the 1-alpha guarantee within tolerance."""
+        mc = evaluation_results["method_comparison"]
+        for method, per_alpha in mc.items():
+            for alpha_str, entry in per_alpha.items():
+                cov = entry["empirical_coverage"]
+                assert (
+                    cov >= 1 - float(alpha_str) - 0.05
+                ), f"method={method} alpha={alpha_str} coverage={cov:.3f}"
+
+
+class TestMondrianGroupCoverage:
+    """Per-subgroup coverage and parity statistical tests."""
+
+    def test_group_coverage_keys(
+        self, cfg_in_tmp: dict, evaluation_results: dict
+    ) -> None:
+        """The five reportable subgroups appear in results['group_coverage']."""
+        gc = evaluation_results["group_coverage"]
+        for key in ("sex_0", "sex_1", "age_lt_50", "age_50_64", "age_65p"):
+            assert key in gc
+            assert "n" in gc[key]
+            assert "empirical_coverage" in gc[key]
+
+    def test_parity_test_returns_pvalue(
+        self, cfg_in_tmp: dict, evaluation_results: dict
+    ) -> None:
+        """parity dict has a finite sex_p_value in [0, 1]."""
+        parity = evaluation_results["group_coverage"]["parity"]
+        assert "sex_p_value" in parity
+        p = parity["sex_p_value"]
+        assert isinstance(p, float)
+        assert 0.0 <= p <= 1.0
+
+
 class TestArtefacts:
     """Figure artefacts and the merged results.json file."""
 
@@ -118,12 +175,28 @@ class TestArtefacts:
         path = Path(cfg_in_tmp["paths"]["figures_dir"], "set_sizes.png")
         assert path.exists() and path.stat().st_size > 0
 
-    def test_results_json_persists_coverage_key(
+    def test_method_comparison_chart_written(
         self, cfg_in_tmp: dict, evaluation_results: dict
     ) -> None:
-        """reports/results.json contains the coverage block after the run."""
+        """method_comparison_set_sizes.png is written to the figures directory."""
+        path = Path(
+            cfg_in_tmp["paths"]["figures_dir"], "method_comparison_set_sizes.png"
+        )
+        assert path.exists() and path.stat().st_size > 0
+
+    def test_group_coverage_chart_written(
+        self, cfg_in_tmp: dict, evaluation_results: dict
+    ) -> None:
+        """group_coverage.png is written to the figures directory."""
+        path = Path(cfg_in_tmp["paths"]["figures_dir"], "group_coverage.png")
+        assert path.exists() and path.stat().st_size > 0
+
+    def test_results_json_persists_top_level_keys(
+        self, cfg_in_tmp: dict, evaluation_results: dict
+    ) -> None:
+        """reports/results.json contains every section key emitted so far."""
         path = Path(cfg_in_tmp["paths"]["reports_dir"], "results.json")
         assert path.exists()
         payload = json.loads(path.read_text())
-        assert "coverage" in payload
-        assert isinstance(payload["coverage"], dict)
+        for key in ("coverage", "method_comparison", "group_coverage"):
+            assert key in payload, f"missing {key}"

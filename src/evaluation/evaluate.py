@@ -21,12 +21,15 @@ import mlflow
 import pandas as pd
 import yaml  # type: ignore[import-untyped]
 
-from src.data.preprocessing import FEATURE_COLS
+from src.data.dataset import load_heart_disease
+from src.data.preprocessing import FEATURE_COLS, three_way_split
 from src.evaluation.coverage import (
     compute_per_alpha_coverage,
     plot_coverage_bar,
     plot_set_sizes_hist,
 )
+from src.evaluation.method_compare import compare_methods, plot_method_comparison
+from src.evaluation.mondrian import group_coverage, parity_test, plot_group_coverage
 from src.logger import get_logger
 from src.models.model import ConformalXGBoost
 
@@ -50,7 +53,13 @@ def run_evaluation(cfg: dict[str, Any]) -> dict[str, Any]:
     reports_dir.mkdir(parents=True, exist_ok=True)
     alphas: list[float] = list(cfg["training"]["alphas"])
 
+    train = pd.read_csv(processed_dir / "train.csv")
+    cal = pd.read_csv(processed_dir / "cal.csv")
     test = pd.read_csv(processed_dir / "test.csv")
+    X_train = train[FEATURE_COLS].values
+    y_train = train["target"].values.astype(int)
+    X_cal = cal[FEATURE_COLS].values
+    y_cal = cal["target"].values.astype(int)
     X_test = test[FEATURE_COLS].values
     y_test = test["target"].values.astype(int)
 
@@ -62,6 +71,41 @@ def run_evaluation(cfg: dict[str, Any]) -> dict[str, Any]:
     results["coverage"] = compute_per_alpha_coverage(model, X_test, y_test, alphas)
     plot_coverage_bar(results["coverage"], figures_dir / "coverage_guarantee.png")
     plot_set_sizes_hist(model, X_test, alphas, figures_dir / "set_sizes.png")
+
+    # Section B — LAC vs APS vs CV+ method comparison (RAPS skipped per C35).
+    results["method_comparison"] = compare_methods(
+        X_train=X_train,
+        y_train=y_train,
+        X_cal=X_cal,
+        y_cal=y_cal,
+        X_test=X_test,
+        y_test=y_test,
+        alphas=alphas,
+        xgb_params=cfg["model"]["xgb"],
+        seed=int(cfg["data"]["random_seed"]),
+    )
+    plot_method_comparison(
+        results["method_comparison"],
+        figures_dir / "method_comparison_set_sizes.png",
+    )
+
+    # Section C — Mondrian group coverage. Re-derive the raw test split from
+    # the raw CSV (deterministic with the same seed) so we have unscaled
+    # sex/age columns for grouping; the scaled X_test still feeds the model.
+    primary_alpha = float(alphas[1]) if len(alphas) >= 2 else float(alphas[0])
+    raw_df = load_heart_disease(cfg["data"]["raw_path"])
+    _, _, raw_test = three_way_split(
+        raw_df,
+        cfg["data"]["train_pct"],
+        cfg["data"]["cal_pct"],
+        cfg["data"]["test_pct"],
+        stratify_col="target",
+        seed=int(cfg["data"]["random_seed"]),
+    )
+    gc = group_coverage(model, raw_test, X_test, primary_alpha)
+    gc["parity"] = parity_test(model, raw_test, X_test, primary_alpha)
+    results["group_coverage"] = gc
+    plot_group_coverage(gc, primary_alpha, figures_dir / "group_coverage.png")
 
     # Persist — merge into existing reports/results.json so baseline_xgb stays.
     out_path = reports_dir / "results.json"
