@@ -108,9 +108,7 @@ def stream_classify(  # noqa: PLR0913
     yield "**Done**", result, f"### Result\n{nl}"
 
 
-with gr.Blocks(
-    theme=get_theme(), css=get_css(), title="Conformal Heart Disease AI"
-) as demo:
+with gr.Blocks(title="Conformal Heart Disease AI") as demo:
     gr.HTML(
         f"""
     <div class='hero'>
@@ -177,4 +175,9 @@ with gr.Blocks(
 
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=7860)  # nosec B104
+    demo.launch(  # nosec B104
+        server_name="0.0.0.0",
+        server_port=7860,
+        theme=get_theme(),
+        css=get_css(),
+    )
