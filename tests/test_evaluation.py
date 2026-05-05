@@ -158,6 +158,19 @@ class TestMondrianGroupCoverage:
         assert 0.0 <= p <= 1.0
 
 
+class TestExpectedCalibrationError:
+    """ECE value lies in the unit interval and gets persisted."""
+
+    def test_ece_in_unit_interval(
+        self, cfg_in_tmp: dict, evaluation_results: dict
+    ) -> None:
+        """ECE in [0, 1] (it's a weighted average of |frac_pos - mean_pred|)."""
+        ece = evaluation_results["ece"]
+        assert "value" in ece
+        assert 0.0 <= float(ece["value"]) <= 1.0
+        assert ece["n_bins"] == 10
+
+
 class TestArtefacts:
     """Figure artefacts and the merged results.json file."""
 
@@ -191,6 +204,13 @@ class TestArtefacts:
         path = Path(cfg_in_tmp["paths"]["figures_dir"], "group_coverage.png")
         assert path.exists() and path.stat().st_size > 0
 
+    def test_calibration_chart_written(
+        self, cfg_in_tmp: dict, evaluation_results: dict
+    ) -> None:
+        """calibration.png is written to the figures directory."""
+        path = Path(cfg_in_tmp["paths"]["figures_dir"], "calibration.png")
+        assert path.exists() and path.stat().st_size > 0
+
     def test_results_json_persists_top_level_keys(
         self, cfg_in_tmp: dict, evaluation_results: dict
     ) -> None:
@@ -198,5 +218,5 @@ class TestArtefacts:
         path = Path(cfg_in_tmp["paths"]["reports_dir"], "results.json")
         assert path.exists()
         payload = json.loads(path.read_text())
-        for key in ("coverage", "method_comparison", "group_coverage"):
+        for key in ("coverage", "method_comparison", "group_coverage", "ece"):
             assert key in payload, f"missing {key}"
