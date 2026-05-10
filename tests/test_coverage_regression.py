@@ -20,12 +20,16 @@ def coverage_results() -> dict:
 
 
 @pytest.mark.parametrize("alpha", _ALPHAS)
-def test_empirical_coverage_meets_guarantee(coverage_results: dict, alpha: float) -> None:
+def test_empirical_coverage_meets_guarantee(
+    coverage_results: dict, alpha: float
+) -> None:
     """Empirical coverage on the test split must be >= 1 - alpha."""
     key = str(alpha).rstrip("0").rstrip(".")
     if key not in coverage_results:
         key = str(alpha)
-    assert key in coverage_results, f"No coverage entry for alpha={alpha} in results.json"
+    assert (
+        key in coverage_results
+    ), f"No coverage entry for alpha={alpha} in results.json"
     empirical = coverage_results[key]["empirical_coverage"]
     guarantee = 1.0 - alpha
     assert empirical >= guarantee, (
