@@ -152,8 +152,15 @@ with tab1:
 
         # SHAP waterfall — per patient (rule U1)
         st.subheader("Why? — SHAP waterfall (this patient)")
+        with st.expander("How to read this chart"):
+            st.markdown(
+                "Each bar shows how much a feature **pushed the model's output** "
+                "up (red) or down (blue) from the baseline expected value. "
+                "The final value on the right is the model's log-odds output for "
+                "this patient."
+            )
         sv = explainer(x)
-        fig, ax = plt.subplots()
+        fig, _ = plt.subplots()
         shap.plots.waterfall(sv[0], show=False)
         st.pyplot(fig)
         plt.close(fig)
