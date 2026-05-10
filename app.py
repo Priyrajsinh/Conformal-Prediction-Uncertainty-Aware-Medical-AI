@@ -289,6 +289,18 @@ with tab4:
                 pd.DataFrame(rows).set_index("group"), use_container_width=True
             )
 
+    parity = results.get("group_coverage", {}).get("parity", {})
+    if parity:
+        st.subheader("Coverage parity test (Bonferroni-corrected p-values)")
+        st.caption(
+            "p > 0.05 = no statistically significant coverage disparity for that group."
+        )
+        _parity_rows = [{"group_test": k, "p_value": v} for k, v in parity.items()]
+        st.dataframe(
+            pd.DataFrame(_parity_rows).set_index("group_test"),
+            use_container_width=True,
+        )
+
     st.markdown(
         """
 > **Marginal vs conditional coverage:**
