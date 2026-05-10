@@ -212,6 +212,26 @@ with tab3:
     with col_b:
         st.image("reports/figures/set_sizes.png", use_container_width=True)
 
+    if _ARTIFACTS_OK and cfg is not None:
+        _cov_data = json.loads(Path(cfg["paths"]["results_json"]).read_text()).get(
+            "coverage", {}
+        )
+        if _cov_data:
+            _cov_rows = []
+            for _a, _m in _cov_data.items():
+                _cov_rows.append(
+                    {
+                        "alpha": float(_a),
+                        "coverage": f"{_m['empirical_coverage']:.3f}",
+                        "target": f"{1 - float(_a):.2f}",
+                        "mean_set_size": f"{_m['mean_set_size']:.3f}",
+                    }
+                )
+            st.dataframe(
+                pd.DataFrame(_cov_rows).set_index("alpha"),
+                use_container_width=True,
+            )
+
     st.subheader("ECE — probability calibration (rule U2)")
     if _ARTIFACTS_OK and cfg is not None:
         _ece_data = json.loads(Path(cfg["paths"]["results_json"]).read_text()).get(
