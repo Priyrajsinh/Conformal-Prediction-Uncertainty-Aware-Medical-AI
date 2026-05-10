@@ -17,16 +17,24 @@ explain.md
 MANUAL_TASKS.md
 data/raw/*.csv
 data/raw/*.data
-data/processed/*.csv
 data/processed/*.sha256
+data/processed/train.csv
+data/processed/test.csv
+# cal split committed for Streamlit Cloud SHAP tab
+!data/processed/cal.csv
 models/*.pkl
-models/*.joblib
 models/mapie/
 models/xgb/
-models/training_stats.json
 models/calibration_metadata.json
-reports/figures/
-reports/results.json
+# model artifacts committed for Streamlit Cloud demo
+!models/scaler.joblib
+!models/xgb.joblib
+!models/scc.joblib
+!models/meta.joblib
+!models/training_stats.json
+# figures and results committed for Streamlit Cloud demo
+!reports/figures/
+!reports/results.json
 hf_space/*.pkl
 hf_space/*.json
 docs/blog/drafts/
