@@ -208,7 +208,7 @@ def stream_classify(  # noqa: PLR0913
 # Gradio UI
 # ---------------------------------------------------------------------------
 
-with gr.Blocks(title="Conformal Heart Disease AI") as demo:
+with gr.Blocks(title="Conformal Heart Disease AI", theme=_get_theme(), css=_get_css()) as demo:
     gr.HTML("""
     <div class='hero'>
       <h1>Conformal Prediction · Uncertainty-Aware Medical AI</h1>
@@ -254,6 +254,4 @@ if __name__ == "__main__":
     demo.launch(
         server_name="0.0.0.0",  # nosec B104
         server_port=7860,
-        theme=_get_theme(),
-        css=_get_css(),
     )
