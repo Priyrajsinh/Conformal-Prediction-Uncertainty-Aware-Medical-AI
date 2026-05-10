@@ -1,6 +1,6 @@
 gradio>=5.0
 xgboost>=2.0
-mapie>=0.9
+mapie>=1.4.0
 scikit-learn>=1.8.0
 pandas>=2.2
 numpy>=1.26
