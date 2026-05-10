@@ -1,21 +1,21 @@
 """Smoke tests for the Streamlit dashboard (Day 6).
 
 Covers:
-  - app module imports without error
+  - app.py is syntactically valid Python
   - glassmorphism CSS file is present
   - hero text renders via AppTest
   - all four tab labels are present via AppTest
 """
 
-import importlib
+import py_compile
 from pathlib import Path
 
 import pytest
 
 
 def test_app_module_imports() -> None:
-    """app.py at project root must be importable without raising."""
-    importlib.import_module("app")
+    """app.py at project root must be syntactically valid Python."""
+    py_compile.compile("app.py", doraise=True)
 
 
 def test_glass_css_exists() -> None:

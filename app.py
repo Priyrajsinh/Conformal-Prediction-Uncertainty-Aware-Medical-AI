@@ -51,7 +51,13 @@ def load_artifacts() -> tuple:
     return cfg, scaler, model, cal, explainer
 
 
-cfg, scaler, model, cal, explainer = load_artifacts()
+_ARTIFACTS_OK = False
+try:
+    cfg, scaler, model, cal, explainer = load_artifacts()
+    _ARTIFACTS_OK = True
+except Exception as _load_err:
+    cfg = scaler = model = cal = explainer = None
+    st.error(f"Model artefacts not found — run `make train` first. ({_load_err})")
 
 _HF_URL = "https://huggingface.co/spaces/Priyrajsinh/conformal-prediction-medical-ai"
 _GH_URL = (
@@ -132,6 +138,9 @@ with tab1:
                 inputs[name] = st.slider(name, int(lo), int(hi), int(default), 1)
 
     if st.button("Predict", type="primary"):
+        if not _ARTIFACTS_OK:
+            st.warning("Model not loaded — run `make train` to generate artefacts.")
+            st.stop()
         try:
             HeartFeatures.model_validate(inputs)
         except Exception as exc:
@@ -152,8 +161,15 @@ with tab1:
 
         # SHAP waterfall — per patient (rule U1)
         st.subheader("Why? — SHAP waterfall (this patient)")
+        with st.expander("How to read this chart"):
+            st.markdown(
+                "Each bar shows how much a feature **pushed the model's output** "
+                "up (red) or down (blue) from the baseline expected value. "
+                "The final value on the right is the model's log-odds output for "
+                "this patient."
+            )
         sv = explainer(x)
-        fig, ax = plt.subplots()
+        fig, _ = plt.subplots()
         shap.plots.waterfall(sv[0], show=False)
         st.pyplot(fig)
         plt.close(fig)
@@ -161,21 +177,31 @@ with tab1:
 # ── Tab 2: Global SHAP beeswarm + bar ───────────────────────────────────────
 with tab2:
     st.subheader("Global feature importance — SHAP beeswarm (rule U1)")
-    st.caption("Computed on the calibration split (n ≈ 60 rows).")
+    if not _ARTIFACTS_OK:
+        st.info("Model artefacts not available. Run `make train` to enable this tab.")
+    else:
+        st.caption(
+            "Computed on the calibration split (n ≈ 60 rows). "
+            "Red = high feature value, blue = low feature value. "
+            "Horizontal position = SHAP impact on model output."
+        )
 
-    X_cal = scaler.transform(cal.drop(columns=["target"]).values)
-    sv_cal = explainer(X_cal)
+        _cal_features = cal.drop(columns=["target"])
+        _X_cal_df = pd.DataFrame(
+            scaler.transform(_cal_features),
+            columns=_cal_features.columns,
+        )
+        sv_cal = explainer(_X_cal_df)
+        fig1, _ = plt.subplots(figsize=(8, 5))
+        shap.plots.beeswarm(sv_cal, show=False)
+        st.pyplot(fig1)
+        plt.close(fig1)
 
-    fig1, _ = plt.subplots(figsize=(8, 5))
-    shap.plots.beeswarm(sv_cal, show=False)
-    st.pyplot(fig1)
-    plt.close(fig1)
-
-    st.subheader("Mean |SHAP value| per feature")
-    fig2, _ = plt.subplots(figsize=(8, 4))
-    shap.plots.bar(sv_cal, show=False)
-    st.pyplot(fig2)
-    plt.close(fig2)
+        st.subheader("Mean |SHAP value| per feature")
+        fig2, _ = plt.subplots(figsize=(8, 4))
+        shap.plots.bar(sv_cal, show=False)
+        st.pyplot(fig2)
+        plt.close(fig2)
 
 # ── Tab 3: Coverage + ECE + DCA + Selective ──────────────────────────────────
 with tab3:
@@ -187,6 +213,17 @@ with tab3:
         st.image("reports/figures/set_sizes.png", use_container_width=True)
 
     st.subheader("ECE — probability calibration (rule U2)")
+    if _ARTIFACTS_OK and cfg is not None:
+        _ece_data = json.loads(Path(cfg["paths"]["results_json"]).read_text()).get(
+            "ece", {}
+        )
+        _ece_val = _ece_data.get("value")
+        if _ece_val is not None:
+            st.metric(
+                "Expected Calibration Error (ECE)",
+                f"{_ece_val:.4f}",
+                help="Closer to 0 = better probability calibration.",
+            )
     st.image("reports/figures/calibration.png", use_container_width=True)
     st.markdown(
         """
@@ -214,7 +251,10 @@ with tab4:
     )
     st.image("reports/figures/group_coverage.png", use_container_width=True)
 
-    results: dict = json.loads(Path(cfg["paths"]["results_json"]).read_text())
+    _results_path = (
+        Path(cfg["paths"]["results_json"]) if _ARTIFACTS_OK and cfg else None
+    )
+    results: dict = json.loads(_results_path.read_text()) if _results_path else {}
     group_cov = results.get("group_coverage", {})
     if group_cov:
         rows = []
