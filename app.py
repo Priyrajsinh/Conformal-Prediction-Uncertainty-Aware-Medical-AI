@@ -161,10 +161,18 @@ with tab1:
 # ── Tab 2: Global SHAP beeswarm + bar ───────────────────────────────────────
 with tab2:
     st.subheader("Global feature importance — SHAP beeswarm (rule U1)")
-    st.caption("Computed on the calibration split (n ≈ 60 rows).")
+    st.caption(
+        "Computed on the calibration split (n ≈ 60 rows). "
+        "Red = high feature value, blue = low feature value. "
+        "Horizontal position = SHAP impact on model output."
+    )
 
-    X_cal = scaler.transform(cal.drop(columns=["target"]).values)
-    sv_cal = explainer(X_cal)
+    _cal_features = cal.drop(columns=["target"])
+    _X_cal_df = pd.DataFrame(
+        scaler.transform(_cal_features),
+        columns=_cal_features.columns,
+    )
+    sv_cal = explainer(_X_cal_df)
 
     fig1, _ = plt.subplots(figsize=(8, 5))
     shap.plots.beeswarm(sv_cal, show=False)
