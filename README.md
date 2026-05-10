@@ -3,12 +3,12 @@
 > Production-grade medical AI with mathematical coverage guarantees.
 > UCI Heart Disease · MAPIE (RAPS, cv='prefit') · XGBoost · FastAPI · Gradio · Streamlit · MLflow.
 
-**Status:** Day 6 complete — Streamlit 4-tab dashboard live. CI: 62 tests, 91.6% coverage.
+**Status:** Day 6 complete — both live demos deployed. CI: 65 tests, 91.6% coverage.
 
 ## Live demos
 - [🤗 Gradio Space](https://huggingface.co/spaces/Priyrajsinh/conformal-prediction-medical-ai) — streaming conformal pipeline with glassmorphism UI
-- 🔗 Streamlit Cloud dashboard — *deploy in progress*
-- 🔗 Swagger API docs (`make serve` → http://localhost:8000/docs)
+- [📊 Streamlit Dashboard](https://conformal-prediction-uncertainty-aware-medical-ai-priyrajsinh.streamlit.app/) — 4-tab dashboard: SHAP, coverage, ECE, group fairness
+- 🔗 Swagger API docs (`uvicorn src.api.app:app --reload` → http://localhost:8000/docs)
 
 ## Quick start
 ```bash
