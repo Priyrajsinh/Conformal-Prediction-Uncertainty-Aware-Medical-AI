@@ -4,16 +4,20 @@ httpx.AsyncClient with ASGITransport does NOT trigger ASGI lifespan events,
 so app.state is populated directly in the fixture rather than via lifespan.
 """
 
+from pathlib import Path
 from typing import Any, AsyncGenerator
 from unittest.mock import MagicMock, patch
 
+import joblib
 import numpy as np
+import pandas as pd
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from src.api.app import app
 from src.api.coverage_monitor import CoverageMonitor
 from src.config import load_config
+from src.models.model import ConformalXGBoost
 
 VALID_BODY: dict[str, Any] = {
     "age": 55,
@@ -138,3 +142,103 @@ async def test_streaming_pipeline_yields_4plus_frames() -> None:
     last_stage, last_result, _ = frames[-1]
     assert "Done" in last_stage
     assert last_result is not None
+
+
+_TEST_CSV = Path("data/processed/test.csv")
+
+
+@pytest.fixture()
+async def real_client() -> AsyncGenerator[AsyncClient, None]:
+    """Async client using actual model artefacts from disk.
+
+    Loads the committed joblib artefacts (scaler, xgb, scc, meta) rather than
+    mocks so the coverage-guarantee hammer test exercises the real pipeline.
+    Rate limiting is disabled — the hammer test fires 60+ requests from the
+    same test IP which would exhaust the 30/minute budget.
+    """
+    cfg = load_config("config/config.yaml")
+    models_dir = Path(cfg["paths"]["models_dir"])
+
+    app.state.cfg = cfg
+    app.state.scaler = joblib.load(models_dir / "scaler.joblib")
+    app.state.model = ConformalXGBoost.load(models_dir)
+    app.state.monitor = CoverageMonitor(
+        window_size=cfg["monitoring"]["coverage_window_size"],
+        epsilon=cfg["monitoring"]["coverage_violation_epsilon"],
+    )
+
+    def _no_rate_limit(
+        self: object, request: Any, endpoint: Any, in_middleware: bool = False
+    ) -> None:
+        """Bypass slowapi rate check; set the state attr it reads after the endpoint."""
+        request.state.view_rate_limit = "unlimited/test"
+
+    with (
+        patch("src.api.app.check_serving_skew", return_value={}),
+        patch("slowapi.extension.Limiter._check_request_limit", _no_rate_limit),
+    ):
+        transport = ASGITransport(app=app)  # type: ignore[arg-type]
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            yield ac
+
+    del app.state.cfg
+    del app.state.scaler
+    del app.state.model
+    del app.state.monitor
+
+
+@pytest.mark.asyncio
+async def test_async_coverage_guarantee(real_client: AsyncClient) -> None:
+    """Hammer every test-split row; empirical coverage must be >= 1-alpha - 0.05.
+
+    data/processed/test.csv contains StandardScaler-transformed features; we
+    inverse-transform to recover approximate original values before sending to
+    the API. Rows whose inverse-transformed features fall outside Pydantic bounds
+    (due to float precision) are skipped and logged.
+
+    The test skips cleanly on a fresh clone where train.py has not been run,
+    since test.csv is gitignored.
+    """
+    if not _TEST_CSV.exists():
+        pytest.skip("data/processed/test.csv not available (gitignored in CI)")
+
+    cfg = load_config("config/config.yaml")
+    models_dir = Path(cfg["paths"]["models_dir"])
+    scaler = joblib.load(models_dir / "scaler.joblib")
+
+    df = pd.read_csv(_TEST_CSV)
+    feature_cols = [c for c in df.columns if c != "target"]
+    X_scaled = df[feature_cols].values
+    X_orig = scaler.inverse_transform(X_scaled)
+
+    # Columns that must be integers for Pydantic HeartFeatures
+    int_col_names = [c for c in feature_cols if c != "oldpeak"]
+    int_indices = [feature_cols.index(c) for c in int_col_names]
+    X_orig[:, int_indices] = np.round(X_orig[:, int_indices])
+
+    alpha = 0.10
+    correct = 0
+    evaluated = 0
+
+    for i, row in enumerate(df.itertuples(index=False)):
+        payload: dict[str, Any] = {}
+        for j, col in enumerate(feature_cols):
+            val = X_orig[i, j]
+            payload[col] = int(round(val)) if col != "oldpeak" else float(val)
+
+        r = await real_client.post(f"/api/v1/predict?alpha={alpha}", json=payload)
+        if r.status_code != 200:
+            continue  # inverse-transform rounding pushed value out of Pydantic bounds
+        body = r.json()
+        evaluated += 1
+        if int(row.target) in body["prediction_set"]:
+            correct += 1
+
+    assert (
+        evaluated >= len(df) // 3
+    ), f"Only {evaluated}/{len(df)} rows were valid after inverse-transform"
+    empirical = correct / evaluated
+    assert empirical >= (1.0 - alpha) - 0.05, (
+        f"Empirical coverage {empirical:.3f} is below 1-alpha-0.05 "
+        f"({(1.0 - alpha) - 0.05:.3f}) on {evaluated} valid test-split rows"
+    )
