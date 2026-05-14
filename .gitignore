@@ -37,6 +37,7 @@ models/calibration_metadata.json
 !reports/results.json
 hf_space/*.pkl
 hf_space/*.json
+hf_space/*.joblib
 docs/blog/drafts/
 research-notes/private/
 .dvc/cache/
